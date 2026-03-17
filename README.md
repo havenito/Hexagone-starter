@@ -1,8 +1,8 @@
 # Analyse d'un Outil de Smart Contract
 
 **Cours** 3WEB3 · Jour 2 · Bloc 4 – Ingénierie logicielle · B3  
-**Format** Trinôme  
-**Étudiants** Enzo M. · Ismail A. · Théo T.  
+**Format** Individuel  
+**Étudiant** Enzo M.  
 **Wallet utilisé** `0xe313348ed8E947FB51e63f54Efae8d3b61896e95`  
 **Hash de vote** `0x69489d89da8a274ae40532dcb20402e430c65b6460242874b3b038db62b1c918`  
 **Bloc** `#10463129`
