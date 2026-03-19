@@ -1,0 +1,23 @@
+{
+  "name": "mon-contrat",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "console:ganache": "hardhat console --network ganache",
+    "deploy:ganache": "hardhat run scripts/deploy.js --network ganache",
+    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
+    "abi:extract": "node scripts/extract-abi.js",
+    "test": "hardhat test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
+    "dotenv": "^17.3.1",
+    "hardhat": "^2.28.0"
+  }
+}

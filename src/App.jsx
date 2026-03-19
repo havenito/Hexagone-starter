@@ -9,6 +9,8 @@ import imgMitterrand from '../img/miterrand.png'
 
 const CANDIDATE_NAMES = ['Léon Blum', 'Jacques Chirac', 'François Mitterrand']
 const CANDIDATE_IMGS  = [imgLeonBlum, imgChirac, imgMitterrand]
+const EXPLORER_BASE = EXPECTED_CHAIN_ID === 11155111 ? 'https://sepolia.etherscan.io' : null
+const isHexAddress = (value) => /^0x[a-fA-F0-9]{40}$/.test(value)
 
 function App() {
   const [account, setAccount]                 = useState(null)
@@ -51,6 +53,10 @@ function App() {
   const connectWallet = async () => {
     try {
       if (!window.ethereum) { setError("MetaMask n\'est pas installé."); return }
+      if (!isHexAddress(CONTRACT_ADDRESS)) {
+        setError("Adresse de contrat invalide dans config.js (remplacez le placeholder).")
+        return
+      }
       const _provider = new BrowserProvider(window.ethereum)
       await _provider.send("eth_requestAccounts", [])
       const network = await _provider.getNetwork()
@@ -64,7 +70,15 @@ function App() {
       setProvider(_provider)
       setError(null)
       await loadCandidates(_provider)
-    } catch { setError("Connexion refusée.") }
+    } catch (err) {
+      if (err?.code === 4001) {
+        setError("Connexion MetaMask refusée.")
+      } else if (String(err?.message || '').toLowerCase().includes('invalid address')) {
+        setError("Adresse de contrat invalide dans config.js.")
+      } else {
+        setError("Erreur de connexion : " + (err?.message || "inconnue"))
+      }
+    }
   }
 
   const vote = async (candidateIndex) => {
@@ -203,9 +217,15 @@ function App() {
           <span className="label">Contrat déployé</span>
           <code className="contract-addr">{CONTRACT_ADDRESS}</code>
           <div className="contract-links">
-            <a href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noopener noreferrer">Etherscan →</a>
-            <a href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}#events`} target="_blank" rel="noopener noreferrer">Events →</a>
-            <a href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}#transactions`} target="_blank" rel="noopener noreferrer">Transactions →</a>
+            {EXPLORER_BASE ? (
+              <>
+                <a href={`${EXPLORER_BASE}/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noopener noreferrer">Etherscan →</a>
+                <a href={`${EXPLORER_BASE}/address/${CONTRACT_ADDRESS}#events`} target="_blank" rel="noopener noreferrer">Events →</a>
+                <a href={`${EXPLORER_BASE}/address/${CONTRACT_ADDRESS}#transactions`} target="_blank" rel="noopener noreferrer">Transactions →</a>
+              </>
+            ) : (
+              <span className="msg-muted">Explorateur public indisponible en local</span>
+            )}
           </div>
         </section>
 
@@ -257,7 +277,7 @@ function App() {
             {txStatus === "confirmed" && lastBlockNumber && (
               <div className="tx-status tx-ok">
                 ✅ Vote enregistré dans le bloc <strong>#{lastBlockNumber}</strong>
-                {txHash && <> · <a href={`https://sepolia.etherscan.io/tx/${txHash}`} target="_blank" rel="noopener noreferrer">Voir sur Etherscan →</a></>}
+                {txHash && EXPLORER_BASE && <> · <a href={`${EXPLORER_BASE}/tx/${txHash}`} target="_blank" rel="noopener noreferrer">Voir sur Etherscan →</a></>}
               </div>
             )}
 
@@ -303,7 +323,7 @@ function App() {
                     <tbody>
                       {explorerEvents.map((e, i) => (
                         <tr key={i}>
-                          <td><a href={`https://sepolia.etherscan.io/tx/${e.hash}`} target="_blank" rel="noopener noreferrer">{e.hash.slice(0,10)}...{e.hash.slice(-6)}</a></td>
+                          <td>{EXPLORER_BASE ? <a href={`${EXPLORER_BASE}/tx/${e.hash}`} target="_blank" rel="noopener noreferrer">{e.hash.slice(0,10)}...{e.hash.slice(-6)}</a> : <span>{e.hash.slice(0,10)}...{e.hash.slice(-6)}</span>}</td>
                           <td>{e.blockNumber}</td>
                           <td>{e.voter.slice(0,10)}...{e.voter.slice(-6)}</td>
                           <td>{e.candidateName}</td>
