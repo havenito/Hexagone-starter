@@ -80,38 +80,3 @@ npm run abi:extract
 5. Mettre a jour le frontend avec l'adresse locale pour les tests
 6. Deployer sur Sepolia (`npm run deploy:sepolia`)
 7. Mettre a jour le frontend avec l'adresse Sepolia finale
-
-## 7. Checklist de validation TP
-
-Le contrat doit contenir au minimum:
-
-- 2 fonctions `view`
-- 1 fonction d'ecriture
-- 1 `event`
-- 1 `require()`
-
-Validation attendue:
-
-- Deploiement Ganache OK
-- Deploiement Sepolia OK
-- Adresse Sepolia visible sur Etherscan
-- Frontend connecte au contrat cible
-
-## 8. Erreurs frequentes
-
-Mauvais reseau MetaMask:
-- Verifier chainId attendu par le frontend
-- Verifier le reseau actif dans MetaMask
-
-`insufficient funds` sur Sepolia:
-- Alimenter le wallet avec le faucet Sepolia
-
-Port Ganache deja utilise:
-- Fermer l'instance deja ouverte ou choisir un autre port
-
-## 9. Rendu conseille
-
-- Lien Etherscan du contrat Sepolia
-- URL de la dApp (si demandee)
-- Captures: vote confirme, events, interface
-- ZIP sans secrets (`.env`, `node_modules`, `dist`)
