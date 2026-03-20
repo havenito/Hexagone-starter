@@ -490,6 +490,36 @@ Ces etapes expliquent directement les preuves affichees dans la section suivante
 
 ---
 
+## Captures d'ecran de validation
+
+Les captures ci-dessous documentent le parcours complet de validation sur Sepolia (signature, attente, confirmation, verification Etherscan).
+
+### 1) Signature de transaction dans MetaMask
+
+![Signature MetaMask](img/screens/01-signature-metamask.png)
+
+### 2) Transaction en attente de confirmation
+
+![Transaction pending](img/screens/02-transaction-pending.png)
+
+### 3) Vote confirme dans l'interface
+
+![Vote confirme dans l'app](img/screens/03-vote-confirme-app.png)
+
+### 4) Details de la transaction sur Etherscan
+
+![Details transaction Etherscan](img/screens/04-etherscan-transaction-details.png)
+
+### 5) Vue transactions Etherscan (bloc)
+
+![Vue transactions Etherscan](img/screens/05-etherscan-transactions-list.png)
+
+### 6) Events du contrat (event Voted) sur Etherscan
+
+![Events du contrat sur Etherscan](img/screens/06-etherscan-events.png)
+
+---
+
 ## Résultats obtenus
 
 Le projet a été validé sur les deux environnements de la stack:
