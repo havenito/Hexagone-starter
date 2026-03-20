@@ -421,6 +421,75 @@ Interface mise à jour
 
 ---
 
+## Etapes realisees pour arriver au resultat
+
+Cette section decrit, dans l'ordre, les actions effectuees pour passer d'un projet vide a une dApp de vote fonctionnelle sur Ganache et Sepolia.
+
+1. **Definition de la logique metier on-chain**
+        - Creation du contrat `MonContrat.sol` avec:
+            - 3 candidats initialises dans le constructor
+            - une fonction d'ecriture `vote(uint256)`
+            - des fonctions de lecture (`getCandidatesCount`, `getCandidate`, `getTimeUntilNextVote`)
+            - un event `Voted` pour tracer les votes
+            - des `require` pour bloquer les index invalides et le non-respect du cooldown
+
+2. **Configuration de l'environnement Hardhat**
+        - Initialisation du projet dans `mon-contrat/`
+        - Ajout de la configuration reseau dans `hardhat.config.js`:
+            - `ganache` (chainId 1337)
+            - `sepolia` (chainId 11155111)
+        - Chargement des secrets via `.env` (`ALCHEMY_URL`, `PRIVATE_KEY`)
+
+3. **Compilation et verification locale du contrat**
+        - Compilation:
+            ```bash
+            npx hardhat compile
+            ```
+        - Verification rapide via console Hardhat/Ganache et script smoke-check pour confirmer:
+            - lecture des candidats
+            - vote valide
+            - rejet d'un index invalide
+
+4. **Deploiement local sur Ganache**
+        - Deploiement du contrat en local:
+            ```bash
+            npm run deploy:ganache
+            ```
+        - Recuperation de l'adresse de contrat locale pour les tests frontend
+
+5. **Extraction de l'ABI et synchronisation frontend**
+        - Extraction de l'ABI compilee:
+            ```bash
+            npm run abi:extract
+            ```
+        - Copie/synchronisation de `abi.json` vers `src/abi.json` pour garantir que le frontend utilise la meme interface que le contrat deployee
+
+6. **Branchement du frontend React au contrat**
+        - Integration Ethers.js dans `App.jsx`
+        - Connexion MetaMask et verification du bon reseau (`EXPECTED_CHAIN_ID`)
+        - Chargement des candidats via fonctions `view`
+        - Envoi des transactions de vote avec suivi d'etat (`signing`, `pending`, `confirmed`)
+        - Ecoute en temps reel de l'event `Voted` pour rafraichir l'UI automatiquement
+
+7. **Passage en environnement public (Sepolia)**
+        - Deploiement public:
+            ```bash
+            npm run deploy:sepolia
+            ```
+        - Mise a jour de `src/config.js` avec l'adresse Sepolia du contrat
+        - Verification du contrat et des transactions sur Etherscan
+
+8. **Validation de bout en bout**
+        - Test utilisateur final:
+            - connexion wallet
+            - vote depuis l'interface
+            - confirmation on-chain
+            - mise a jour immediate de l'interface et de l'explorateur d'evenements
+
+Ces etapes expliquent directement les preuves affichees dans la section suivante (deploiements reussis, contrat visible sur Etherscan, votes confirmes et cooldown applique).
+
+---
+
 ## Résultats obtenus
 
 Le projet a été validé sur les deux environnements de la stack:
