@@ -533,17 +533,3 @@ Exemple de transaction de vote confirmée:
 5. Ajouter une CI simple (lint/build/tests) pour fiabiliser le rendu.
 
 ---
-
-## Livrables de remise
-
-Livrable minimum:
-- Smart contract Solidity déployé sur Sepolia avec les 4 éléments requis
-- Lien Etherscan du contrat
-
-Livrable complet:
-- Frontend connecté au contrat déployé
-- Preuve de transactions de vote confirmées
-
-Éléments recommandés dans la remise:
-- ZIP du projet smart contract + frontend (sans `.env`, `node_modules`, `dist`, `artifacts` inutiles)
-- 2 à 3 captures (interface, transaction confirmée, événements)
