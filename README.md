@@ -1,160 +1,480 @@
-# Analyse d'un Outil de Smart Contract
+# Bureau de Vote On-Chain — Documentation Projet
 
-**Cours** 3WEB3 · Jour 2 · Bloc 4 – Ingénierie logicielle · B3  
-**Format** Trinôme  
-**Étudiants** Enzo M. · Ismail A. · Théo T.  
-**Wallet utilisé** `0xe313348ed8E947FB51e63f54Efae8d3b61896e95`  
-**Hash de vote** `0x69489d89da8a274ae40532dcb20402e430c65b6460242874b3b038db62b1c918`  
-**Bloc** `#10463129`
+> TD Jour 3 · 3WEB3 · Bloc 4 · B3  
+> Stack : Solidity · Hardhat · Ganache · Alchemy · Sepolia · Ethers.js · React
 
 ---
 
-## Phase 1 — Observation de l'interface
+## Présentation du projet
 
-### 1.1 — Ce que je vois sans wallet
+**Bureau de Vote On-Chain** est une application décentralisée (dApp) de vote présidentiel déployée sur le réseau de test Ethereum Sepolia. Les votes sont enregistrés directement sur la blockchain — permanents, publics, et vérifiables par n'importe qui sur Etherscan.
 
-**Les résultats s'affichent-ils avant MetaMask ? → Oui**
+Le projet est composé de deux parties distinctes :
 
-Les trois candidats et leurs scores apparaissent immédiatement au chargement, sans aucune interaction. C'est possible parce que lire l'état d'un contrat Ethereum est gratuit et public : le frontend appelle `getCandidate()`, une fonction `view` qui ne modifie rien sur la blockchain. L'EVM l'exécute sans transaction, sans signature, sans gas. N'importe qui avec une connexion au réseau peut lire — c'est la **transparence** de la blockchain.
-
-| Élément | Présent ? | Localisation |
-|---|---|---|
-| Adresse du contrat déployé | ✅ | Section "Smart Contract déployé sur Ethereum Sepolia" |
-| Lien vers Etherscan | ✅ | Boutons "Voir le contrat", "Transactions", "Events" |
-| Nombre de votes par candidat | ✅ | Cartes des 3 candidats avec score et barre de progression |
-| Historique des transactions | ✅ | Section "Blockchain Explorer" (bouton Afficher) |
-| Explication du fonctionnement | ✅ | Accordéon "Comment fonctionne ce vote on-chain ?" |
-
-### 1.2 — Connexion MetaMask
-
-Après connexion, **mon adresse complète** s'affiche (`0xe313...e95`) avec le label "Sepolia", et les boutons "Voter →" apparaissent sur chaque candidat.
-
-**MetaMask a-t-il demandé un login/mot de passe ? → Non**
-
-En Web2, on s'identifie avec un email + mot de passe stocké sur un serveur qui peut être compromis, réinitialisé, ou supprimé. En Web3, l'identité repose sur une paire de clés cryptographiques : mon adresse publique est connue de tous, et ma clé privée (que je suis seul à posséder) prouve que c'est moi. Aucun serveur central, aucun compte à créer.
+- `mon-contrat/` — le smart contract Solidity compilé et déployé avec Hardhat
+- `src/` — le frontend React connecté au contrat via Ethers.js et MetaMask
 
 ---
 
-## Phase 2 — Voter et observer la transaction
+## Structure du projet
 
-### 2.1 — La popup MetaMask avant confirmation
-
-**Adresse du contrat :** `0x291Ac3C6a92dF373dEa40fee62Ad39831B8A1DDC`  
-**Gas estimé :** ~0,0001 SepoliaETH
-
-**Pourquoi voter coûte du gas ?**  
-Voter appelle la fonction `vote()` qui demande à l'EVM d'exécuter plusieurs opérations : lire le mapping `lastVoteTime[msg.sender]`, vérifier le `require()`, incrémenter le compteur du candidat (écriture `SSTORE` en storage = opcode le plus coûteux), enregistrer le nouveau timestamp, et émettre l'event `Voted`. Chaque opcode a un coût en gas fixé par le protocole. Ce gas est payé aux validateurs pour rémunérer l'exécution sur l'EVM.
-
-### 2.2 — Transaction confirmée sur Etherscan
-
-| Donnée | Valeur |
-|---|---|
-| Numéro du bloc | `10463129` |
-| Timestamp du bloc | Mar-17-2026 10:06:36 AM UTC |
-| Gas utilisé (gasUsed) | `53 173` unités |
-| Gas limit fixé | ~`79 000` unités |
-| Statut | ✅ Success |
-| Fonction appelée | `Vote` |
-
-**gasUsed vs gasLimit :**  
-Le `gasLimit` est le maximum autorisé à dépenser — c'est une sécurité pour ne pas vider son wallet si le contrat part en boucle infinie. Le `gasUsed` est ce qui a réellement été consommé lors de l'exécution. L'EVM s'arrête dès que l'exécution est terminée ; le surplus de gas non utilisé est remboursé automatiquement. Ici 53 173 < 79 000 car le contrat s'est exécuté normalement sans atteindre la limite.
-
-### 2.3 — Le cooldown
-
-En essayant de revoter immédiatement, les boutons "Voter →" disparaissent et un compte à rebours s'affiche (ex: `02:37`).
-
-**Cette restriction est dans le smart contract**, pas seulement dans le frontend. Preuve : si on appelait `vote()` directement via Etherscan ou un script Python/JS en contournant l'interface, le contrat répondrait quand même avec une erreur `require` — la transaction serait rejetée par l'EVM. Le frontend ne fait que refléter une règle déjà enforced on-chain.
-
-**Mécanisme Solidity :**  
-- Variable : `mapping(address => uint256) public lastVoteTime`  
-- Fonction : `getTimeUntilNextVote(address voter)`  
-- Condition : `require(block.timestamp >= lastVoteTime[msg.sender] + cooldownDuration)`
-
-`block.timestamp` est fourni par le validateur au moment de l'inclusion du bloc — impossible à falsifier côté client.
+```
+dapp-vote-starter-master/
+├── mon-contrat/                  ← Projet Hardhat (smart contract)
+│   ├── contracts/
+│   │   └── MonContrat.sol        ← Le smart contract Solidity
+│   ├── scripts/
+│   │   ├── deploy.js             ← Script de déploiement
+│   │   ├── extract-abi.js        ← Extraction de l'ABI depuis les artifacts
+│   │   └── smoke-check.js        ← Tests rapides post-déploiement
+│   ├── abi.json                  ← ABI extraite (copiée dans src/)
+│   ├── hardhat.config.js         ← Configuration Hardhat (Ganache + Sepolia)
+│   └── package.json
+├── src/                          ← Projet React (frontend)
+│   ├── App.jsx                   ← Composant principal de la dApp
+│   ├── abi.json                  ← ABI du contrat (même fichier que mon-contrat/abi.json)
+│   ├── config.js                 ← Adresse du contrat et chainId
+│   ├── index.css
+│   └── styles.css
+├── img/                          ← Photos des candidats
+│   ├── leon_blum.png
+│   ├── chiraq.png
+│   └── miterrand.png
+├── index.html
+├── vite.config.js
+└── package.json
+```
 
 ---
 
-## Phase 3 — Investigation on-chain via Etherscan
+## Le smart contract — `MonContrat.sol`
 
-### 3.1 — Onglet "Transactions"
+### Vue d'ensemble
 
-Le contrat a reçu plusieurs transactions de type `Vote` depuis différentes adresses le 17 mars 2026. La **première transaction** est celle du déploiement — dans la colonne "Method", elle n'affiche pas `Vote` mais rien (ou le hash du constructeur), parce que c'est la création du contrat par son déployeur, pas un appel de fonction utilisateur.
+Le contrat implémente un système de vote avec trois candidats pré-définis, un cooldown de 3 minutes entre chaque vote, et un historique des votes enregistré on-chain via des events.
 
-### 3.2 — Onglet "Events"
+### Candidats
 
-**Nom de l'event :** `Voted`  
-**Deux paramètres :** `voter` (address, indexed) et `candidateIndex` (uint256)
+Les candidats sont initialisés dans le constructor au moment du déploiement :
 
-**Event vs variable d'état :**  
-Une variable d'état (storage) ne conserve que la valeur actuelle — on sait combien de votes un candidat a, mais pas qui a voté ni quand. Un event est émis dans les **logs** de la transaction : immuables, jamais effaçables, consultables de l'extérieur via `queryFilter` ou Etherscan. Émettre un event coûte moins cher en gas que d'écrire en storage, et ça crée un historique complet de toute l'activité du contrat depuis son déploiement.
+| Index | Nom |
+|-------|-----|
+| 0 | Léon Blum |
+| 1 | Jacques Chirac |
+| 2 | François Mitterrand |
 
-### 3.3 — Onglet "Contract"
+### Variables d'état
 
-**Le code source est-il vérifié ? → Non** — seul le bytecode compilé est visible sur Etherscan.
+```solidity
+address public owner;
+uint256 public constant COOLDOWN = 3 minutes;
+Candidate[] private candidates;
+mapping(address => uint256) public lastVoteTime;
+```
 
-C'est une limite importante pour la transparence revendiquée : sans le code Solidity publié, les utilisateurs ne peuvent pas lire les règles directement. En décodant le bytecode à la main, j'ai trouvé la valeur `0x12c = 300 secondes = 5 minutes` (le cooldown réel) et le message d'erreur en clair : *"Vous devez attendre 5 minutes entre deux votes"*. Le frontend affiche "3 minutes" — le contrat enforce 5 minutes. **Incohérence détectable uniquement en lisant le bytecode.**
+| Variable | Type | Description |
+|----------|------|-------------|
+| `owner` | `address` | Adresse qui a déployé le contrat (`msg.sender` au déploiement) |
+| `COOLDOWN` | `uint256` constant | Délai minimum entre deux votes : 180 secondes |
+| `candidates` | `Candidate[]` | Tableau privé des candidats (struct name + voteCount) |
+| `lastVoteTime` | `mapping(address => uint256)` | Timestamp du dernier vote par adresse |
 
-Si la condition `require()` n'est pas respectée (cooldown pas écoulé ou candidat invalide), l'EVM annule toute l'exécution, les modifications en storage sont annulées, et le gas consommé jusqu'à ce point est quand même payé.
+### Struct
 
-### 3.4 — Blockchain Explorer intégré
+```solidity
+struct Candidate {
+    string name;
+    uint256 voteCount;
+}
+```
 
-| Donnée | Valeur |
-|---|---|
-| parentHash | `0x9f3a...` (hash du bloc précédent) |
-| gasUsed (transaction) | `53 173` unités |
-| gasLimit (bloc) | `~30 000 000` unités |
-| Validateur (miner) | `0x...` |
+### Event
 
-**Pourquoi le parentHash est fondamental ?**  
-Chaque bloc contient le hash cryptographique du bloc précédent. Si on modifiait un vote dans un bloc passé, son contenu changerait → son hash changerait → le `parentHash` du bloc suivant deviendrait invalide → toute la chaîne à partir de ce point serait cassée. Pour falsifier un vote, il faudrait recalculer tous les blocs suivants plus vite que le reste du réseau : mathématiquement impossible avec Ethereum.
+```solidity
+event Voted(address indexed voter, uint256 candidateIndex);
+```
 
-**Le bloc précédent contient-il un vote ?** Pas forcément. Ethereum traite des milliers de transactions différentes (transferts ETH, appels à d'autres contrats, déploiements...). Un bloc peut ne contenir aucun appel à ce contrat de vote spécifique.
+Émis à chaque vote valide. `voter` est indexé pour pouvoir filtrer les events par adresse dans le frontend. Le frontend écoute cet event en temps réel pour mettre à jour l'interface sans polling.
+
+### Fonctions
+
+#### Fonctions view (lecture gratuite, pas de gas, pas de MetaMask)
+
+**`getCandidatesCount()`**
+```solidity
+function getCandidatesCount() external view returns (uint256)
+```
+Retourne le nombre total de candidats. Utilisé par le frontend pour itérer sur les candidats au chargement.
+
+**`getCandidate(uint256 index)`**
+```solidity
+function getCandidate(uint256 index) external view returns (string memory name, uint256 voteCount)
+```
+Retourne le nom et le nombre de votes d'un candidat à un index donné. Déclenche un `require` si l'index est hors limites.
+
+**`getTimeUntilNextVote(address voter)`**
+```solidity
+function getTimeUntilNextVote(address voter) external view returns (uint256)
+```
+Retourne le nombre de secondes restantes avant que `voter` puisse voter à nouveau. Retourne `0` si le cooldown est passé ou si c'est le premier vote.
+
+#### Fonction d'écriture (coûte du gas, MetaMask requis)
+
+**`vote(uint256 candidateIndex)`**
+```solidity
+function vote(uint256 candidateIndex) external
+```
+Enregistre un vote pour le candidat à l'index donné.
+
+Règles métier vérifiées on-chain via `require` :
+- L'index doit être valide (`candidateIndex < candidates.length`)
+- Le cooldown de 3 minutes doit être respecté (`block.timestamp >= lastVoteTime[msg.sender] + COOLDOWN`)
+
+En cas de succès : incrémente `voteCount` du candidat, met à jour `lastVoteTime[msg.sender]`, et émet l'event `Voted`.
+
+### Code complet du contrat
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract MonContrat {
+    struct Candidate {
+        string name;
+        uint256 voteCount;
+    }
+
+    address public owner;
+    uint256 public constant COOLDOWN = 3 minutes;
+    Candidate[] private candidates;
+    mapping(address => uint256) public lastVoteTime;
+
+    event Voted(address indexed voter, uint256 candidateIndex);
+
+    constructor() {
+        owner = msg.sender;
+        candidates.push(Candidate("Leon Blum", 0));
+        candidates.push(Candidate("Jacques Chirac", 0));
+        candidates.push(Candidate("Francois Mitterrand", 0));
+    }
+
+    function getCandidatesCount() external view returns (uint256) {
+        return candidates.length;
+    }
+
+    function getCandidate(uint256 index) external view returns (string memory name, uint256 voteCount) {
+        require(index < candidates.length, "Candidat invalide");
+        Candidate storage c = candidates[index];
+        return (c.name, c.voteCount);
+    }
+
+    function getTimeUntilNextVote(address voter) external view returns (uint256) {
+        uint256 last = lastVoteTime[voter];
+        if (last == 0 || block.timestamp >= last + COOLDOWN) {
+            return 0;
+        }
+        return (last + COOLDOWN) - block.timestamp;
+    }
+
+    function vote(uint256 candidateIndex) external {
+        require(candidateIndex < candidates.length, "Candidat invalide");
+        require(
+            block.timestamp >= lastVoteTime[msg.sender] + COOLDOWN,
+            "Attends 3 minutes entre deux votes"
+        );
+
+        candidates[candidateIndex].voteCount += 1;
+        lastVoteTime[msg.sender] = block.timestamp;
+
+        emit Voted(msg.sender, candidateIndex);
+    }
+}
+```
 
 ---
 
-## Phase 4 — Analyse critique
+## Configuration Hardhat — `hardhat.config.js`
 
-### 4.1 — Propriétés exploitées
+```javascript
+require("@nomicfoundation/hardhat-toolbox");
+require("dotenv").config();
 
-| Propriété | Exploitée ? | Justification |
-|---|---|---|
-| Immuabilité | ✅ Oui | Une fois inclus dans un bloc finalisé, un vote ne peut plus être supprimé ni modifié |
-| Transparence | ✅ Oui | Tous les votes sont visibles sur Etherscan sans permission, vérifiables par n'importe qui |
-| Désintermédiation | ⚠️ Partielle | Pas de serveur pour les votes eux-mêmes, mais l'interface tourne sur Vercel (centralisé) |
-| Décentralisation | ⚠️ Partielle | Le contrat tourne sur Ethereum (décentralisé), mais une seule adresse l'a déployé |
+const privateKey = process.env.PRIVATE_KEY || "";
+const hasValidPrivateKey = /^0x[0-9a-fA-F]{64}$/.test(privateKey);
 
-### 4.2 — Les limites
+module.exports = {
+  solidity: "0.8.20",
+  networks: {
+    ganache: {
+      url: "http://127.0.0.1:7545",
+      chainId: 1337,
+    },
+    sepolia: {
+      url: process.env.ALCHEMY_URL || "",
+      chainId: 11155111,
+      accounts: hasValidPrivateKey ? [privateKey] : [],
+    },
+  },
+};
+```
 
-**Ce vote est-il anonyme ?**  
-Non. Chaque vote est lié à une adresse Ethereum publique visible sur Etherscan. Si cette adresse est liée à une identité réelle (échange crypto avec KYC, ENS, réseaux sociaux), le vote est parfaitement traçable. La blockchain est *pseudonyme*, pas anonyme.
-
-**Contourner le cooldown ?**  
-Oui facilement : créer un deuxième wallet MetaMask. Chaque adresse Ethereum est indépendante — le contrat ne connaît que les adresses, pas les personnes derrière. Un utilisateur motivé peut voter depuis autant d'adresses qu'il veut tant qu'il a du SepoliaETH sur chacune.
-
-**N'importe qui peut déployer une autre interface ?**  
-Oui. Le contrat est public, l'ABI est accessible dans le bundle JS du frontend. N'importe qui peut construire une interface différente (ou malveillante) qui appelle les mêmes fonctions `vote()`. Ça implique qu'il n'y a aucun "contrôle" de l'expérience utilisateur — le créateur du contrat ne peut pas empêcher ça, et les votes faits via une autre interface sont tout aussi valides.
-
-### 4.3 — Verdict final
-
-Ce qui fonctionne bien : les règles métier (cooldown, validation du candidat) sont enforced dans le smart contract, pas dans le frontend — un attaquant ne peut pas les contourner en manipulant l'interface. L'historique des votes est vérifiable publiquement sur Etherscan, indépendamment du site Vercel.
-
-Ce qui pourrait être amélioré : le contrat n'est pas vérifié sur Etherscan (pas de Solidity publié), ce qui contredit la transparence revendiquée. L'incohérence "3 min affiché / 5 min enforced" montre qu'il n'y a pas eu de test de bout en bout après déploiement.
-
-L'usage de la blockchain est **justifié pour un TD pédagogique** : il illustre concrètement les concepts — transactions signées, gas, immuabilité, events. Pour un vrai vote, ce serait insuffisant (pas d'anonymat, multi-wallets possible, interface centralisée).
+Les variables sensibles (`ALCHEMY_URL`, `PRIVATE_KEY`) sont chargées depuis un fichier `.env` non versionné.
 
 ---
 
-## Synthèse finale
+## Scripts Hardhat
 
-**En une phrase — qu'est-ce qu'un smart contract ?**  
-Un programme stocké et exécuté directement sur la blockchain, dont le code est immuable après déploiement et dont les règles s'appliquent automatiquement sans qu'aucun humain ou serveur ne puisse les contourner.
+### `scripts/deploy.js` — déploiement
 
-**Frontend vs smart contract en une phrase :**  
-Le frontend (Vercel) est une interface visuelle remplaçable qui peut mentir ou tomber en panne ; le smart contract (Sepolia) est la couche de vérité — il exécute les règles et stocke les votes de façon permanente, indépendamment de toute interface.
+Déploie le contrat sur le réseau spécifié via `--network`. Affiche l'adresse déployée et, sur Sepolia, le lien Etherscan correspondant.
 
-**La question que cette analyse m'a donné envie de poser :**  
-Si le contrat n'a pas de `owner` et que son code est immuable, comment fait-on pour corriger un bug critique après déploiement — et qui décide de migrer vers un nouveau contrat ?
+```bash
+# Déployer en local
+npx hardhat run scripts/deploy.js --network ganache
+
+# Déployer sur Sepolia
+npx hardhat run scripts/deploy.js --network sepolia
+```
+
+### `scripts/extract-abi.js` — extraction de l'ABI
+
+Lit `artifacts/contracts/MonContrat.sol/MonContrat.json` généré par la compilation et en extrait uniquement le tableau `abi` dans `mon-contrat/abi.json`.
+
+```bash
+npm run abi:extract
+```
+
+### `scripts/smoke-check.js` — vérification post-déploiement
+
+Script de test rapide à lancer juste après un déploiement sur Ganache. Vérifie que les fonctions de lecture répondent correctement, qu'un vote s'enregistre bien, et qu'un index invalide déclenche bien un `require`.
+
+```bash
+node scripts/smoke-check.js <adresse_du_contrat>
+```
 
 ---
 
-*Contrat : [`0x291Ac3C6a92dF373dEa40fee62Ad39831B8A1DDC`](https://sepolia.etherscan.io/address/0x291Ac3C6a92dF373dEa40fee62Ad39831B8A1DDC) · Ethereum Sepolia*
+## Frontend React — `src/App.jsx`
+
+### Connexion à MetaMask
+
+La connexion est initiée par `connectWallet()`. La fonction vérifie que MetaMask est installé, que l'adresse dans `config.js` est valide, et que MetaMask est sur le bon réseau (`EXPECTED_CHAIN_ID`). En cas d'erreur, un message explicite est affiché.
+
+### Chargement des données
+
+`loadCandidates()` instancie le contrat en lecture seule (provider uniquement), puis appelle `getCandidatesCount()` et `getCandidate(i)` pour chaque candidat. Ces appels sont gratuits — aucune transaction, aucune popup MetaMask.
+
+### Vote
+
+`vote(candidateIndex)` vérifie d'abord le cooldown restant via `getTimeUntilNextVote()`, puis envoie la transaction. Le statut de la transaction est affiché en temps réel (`signing` → `pending` → `confirmed`). Les données sont rechargées après `tx.wait()`.
+
+### Écoute des events en temps réel
+
+Le composant souscrit à l'event `Voted` via `contrat.on("Voted", handler)` dans un `useEffect`. À chaque vote reçu (y compris ceux d'autres utilisateurs), les candidats sont rechargés et un bandeau "live event" est affiché. La désabonnement (`contrat.off`) est géré dans le cleanup du `useEffect` pour éviter les fuites mémoire.
+
+### Cooldown timer
+
+Un `setInterval` décrémente `cooldownSeconds` chaque seconde dès qu'un cooldown est actif. Le timer est nettoyé quand il atteint 0 ou quand le composant est démonté.
+
+### Blockchain Explorer intégré
+
+Un explorateur embarqué affiche les 20 derniers votes en interrogeant directement les events on-chain via `queryFilter`. Pour chaque event, le bloc et la transaction sont enrichis avec le timestamp et le gas consommé.
+
+---
+
+## Configuration frontend — `src/config.js`
+
+```javascript
+export const CONTRACT_ADDRESS = "0xA95c4e2653262815f4dA8B83747AB8D990Bf868f";
+export const EXPECTED_CHAIN_ID = 11155111;
+export const EXPECTED_NETWORK_NAME = "Sepolia";
+```
+
+Le contrat est déployé sur **Ethereum Sepolia** à l'adresse `0xA95c4e2653262815f4dA8B83747AB8D990Bf868f`.
+
+Lien Etherscan : [https://sepolia.etherscan.io/address/0xA95c4e2653262815f4dA8B83747AB8D990Bf868f](https://sepolia.etherscan.io/address/0xA95c4e2653262815f4dA8B83747AB8D990Bf868f)
+
+### Modes d'execution frontend
+
+Le frontend peut fonctionner dans deux modes selon `src/config.js`:
+
+- **Mode Sepolia (rendu final/public)**
+    - `EXPECTED_CHAIN_ID = 11155111`
+    - `EXPECTED_NETWORK_NAME = "Sepolia"`
+    - `CONTRACT_ADDRESS = adresse Sepolia`
+
+- **Mode Ganache (tests locaux)**
+    - `EXPECTED_CHAIN_ID = 1337`
+    - `EXPECTED_NETWORK_NAME = "Ganache"`
+    - `CONTRACT_ADDRESS = adresse locale retournee par \'npm run deploy:ganache\'`
+
+Note: l'ABI ne change pas entre les deux modes; seule l'adresse et le chainId changent.
+
+---
+
+## Prérequis techniques
+
+- Node.js v18+
+- MetaMask installé dans le navigateur
+- Ganache Desktop (pour le dev local)
+- Un compte Alchemy avec une app configurée sur Sepolia (pour le déploiement public)
+
+---
+
+## Installation et lancement
+
+### Smart contract (dossier `mon-contrat/`)
+
+```bash
+cd mon-contrat
+npm install
+```
+
+Créer un fichier `.env` à la racine de `mon-contrat/` :
+
+```
+ALCHEMY_URL=https://eth-sepolia.g.alchemy.com/v2/VOTRE_API_KEY
+PRIVATE_KEY=0xVOTRE_CLE_PRIVEE
+```
+
+> ⚠ Ne jamais committer le fichier `.env`. Il est déjà listé dans `.gitignore`.
+
+```bash
+# Compiler
+npx hardhat compile
+
+# Tester la logique en console (Ganache doit tourner)
+npx hardhat console --network ganache
+
+# Déployer sur Ganache
+npm run deploy:ganache
+
+# Extraire l'ABI
+npm run abi:extract
+
+# Déployer sur Sepolia
+npm run deploy:sepolia
+```
+
+### Frontend (racine du projet)
+
+```bash
+npm install
+npm run dev
+```
+
+Ouvrir [http://localhost:5173](http://localhost:5173). MetaMask doit être configuré sur Sepolia (chainId 11155111).
+
+Pour tester en local sur Ganache, basculer `src/config.js` en mode Ganache puis sélectionner le réseau Ganache dans MetaMask.
+
+---
+
+## Validation rapide (prof/correcteur)
+
+1. **Compilation contrat**: `npx hardhat compile`
+2. **Déploiement local**: `npm run deploy:ganache`
+3. **Déploiement public**: `npm run deploy:sepolia`
+4. **Preuve on-chain**: ouvrir l'adresse Sepolia sur Etherscan
+5. **Test fonctionnel dApp**: connexion MetaMask, vote, confirmation transaction
+
+---
+
+## Checklist des 4 éléments requis
+
+| Élément requis | Implémentation |
+|----------------|----------------|
+| ≥ 2 fonctions `view` | `getCandidatesCount()`, `getCandidate()`, `getTimeUntilNextVote()` |
+| ≥ 1 fonction d'écriture | `vote()` |
+| ≥ 1 event | `Voted(address indexed voter, uint256 candidateIndex)` |
+| ≥ 1 `require()` | Index invalide + cooldown non respecté |
+
+---
+
+## Flux de données complet
+
+```
+Utilisateur clique "Voter"
+        ↓
+App.jsx — vote(candidateIndex)
+        ↓
+getTimeUntilNextVote() — vérification cooldown côté frontend
+        ↓
+contratEcriture.vote(index) — transaction envoyée à MetaMask
+        ↓
+MetaMask ouvre la popup de signature
+        ↓
+Transaction envoyée au réseau Sepolia via le provider
+        ↓
+MonContrat.vote() s'exécute sur l'EVM
+  ├── require(index valide)
+  ├── require(cooldown respecté)
+  ├── candidates[index].voteCount += 1
+  ├── lastVoteTime[msg.sender] = block.timestamp
+  └── emit Voted(msg.sender, index)
+        ↓
+tx.wait() — attente de confirmation (~12s)
+        ↓
+loadCandidates() — rechargement des données
+        ↓
+Interface mise à jour
+```
+
+---
+
+## Résultats obtenus
+
+Le projet a été validé sur les deux environnements de la stack:
+
+- **Ganache (local)**
+    - Déploiement du contrat réussi
+    - Appels `view` validés
+    - Vote on-chain validé
+    - Cooldown correctement appliqué
+
+- **Sepolia (public)**
+    - Déploiement public réussi
+    - Contrat accessible sur Etherscan
+    - Votes confirmés et événements visibles on-chain
+
+Adresse du contrat déployé sur Sepolia:
+- `0xA95c4e2653262815f4dA8B83747AB8D990Bf868f`
+
+Lien de vérification:
+- [https://sepolia.etherscan.io/address/0xA95c4e2653262815f4dA8B83747AB8D990Bf868f](https://sepolia.etherscan.io/address/0xA95c4e2653262815f4dA8B83747AB8D990Bf868f)
+
+Exemple de transaction de vote confirmée:
+- `0x1d4f9300b6ba586d3a10be3bff30023d43d910fe1e9746f96d3ae54c85473c72`
+
+---
+
+## Limites actuelles
+
+- Les tests automatisés Hardhat ne sont pas encore formalisés dans des fichiers `test/` complets.
+- Le contrat Sepolia n'est pas encore publié/vérifié en code source sur Etherscan (lecture des logs et transactions disponible, mais source non vérifiée).
+- Le frontend est configuré via un fichier statique `src/config.js` (pas de gestion multi-environnement automatisée).
+
+---
+
+## Améliorations possibles
+
+1. Ajouter une suite de tests unitaires et d'intégration (Hardhat + Chai).
+2. Vérifier et publier le code source du contrat sur Etherscan.
+3. Ajouter un script de bascule `Ganache/Sepolia` pour éviter les modifications manuelles de configuration.
+4. Déployer le frontend sur Vercel avec une documentation utilisateur courte.
+5. Ajouter une CI simple (lint/build/tests) pour fiabiliser le rendu.
+
+---
+
+## Livrables de remise
+
+Livrable minimum:
+- Smart contract Solidity déployé sur Sepolia avec les 4 éléments requis
+- Lien Etherscan du contrat
+
+Livrable complet:
+- Frontend connecté au contrat déployé
+- Preuve de transactions de vote confirmées
+
+Éléments recommandés dans la remise:
+- ZIP du projet smart contract + frontend (sans `.env`, `node_modules`, `dist`, `artifacts` inutiles)
+- 2 à 3 captures (interface, transaction confirmée, événements)
