@@ -12,7 +12,7 @@
 Le projet est composé de deux parties distinctes :
 
 - `mon-contrat/` — le smart contract Solidity compilé et déployé avec Hardhat
-- `src/` — le frontend React connecté au contrat via Ethers.js et MetaMask
+- `src/` — le frontend React connecté au contrat via Ethers.js et MetaMask **VEUILLEZ RETROUVER LA FICHE ANALYSE DANS /src**
 
 ---
 
